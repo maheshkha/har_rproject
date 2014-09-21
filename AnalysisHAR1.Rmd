@@ -1,0 +1,103 @@
+---
+title: "Analysis of Human Activity Recognition (HAR) using R code"
+author: "Mahesh Khadatare"
+date: "Sunday, September 21, 2014"
+output: html_document
+---
+
+<h1>Abstract summary</h1>
+In this activity, we are try to use machine learning algorithms to analyze the human activity recognition.  Database is collected using devices such as Jawbone Up, Nike FuelBand, and Fitbit and sample dataset is provided by Groupware. In this project, our goal is to use data from accelerometers on the belt, forearm, arm, and dumbell of 6 participants. They were asked to perform barbell lifts correctly and incorrectly in 5 different ways.
+<p>
+<h1>Database</h1> 
+<p>The goal of your project is to predict the human action manner. 
+The input training data for this project are pml-training.csv available here:  <a href="https://d396qusza40orc.cloudfront.net/predmachlearn/pml-training.csv">https://d396qusza40orc.cloudfront.net/predmachlearn/pml-training.csv</a> and the input test data are 
+pml-testing.csv available here: <a href="https://d396qusza40orc.cloudfront.net/predmachlearn/pml-testing.csv">https://d396qusza40orc.cloudfront.net/predmachlearn/pml-testing.csv</a>. The data for this project come from this source: <a href="http://groupware.les.inf.puc-rio.br/har">http://groupware.les.inf.puc-rio.br/har</a>.</p>
+
+<h1>Data Preprocessing</h1>
+
+<ol>
+<li><p>Project set up the path working directory.</p></li>
+<li><p>Read and Load the training and testing data, and perform elementary data analysis.</p></li>
+<li><p>Preprocessing of the data, and extract the meaningful feature. For this task, we select the columns which have most of the entry are NA and blank, and filtered out the training and test data set and build the validate data set that used for training the model. At this stage, we have perform the elementary data analysis on newly build training data set.</p></li>
+<li><p>Machine Learning algorithm running on R code need to load the &ldquo;caret&rdquo; package.</p></li>
+<li><p>Separate and partition of the training data using &ldquo;createDataPartition()&rdquo; function and perform basic machine learning operations.</p></li>
+<li><p>Now find out the less meangingful or useless predictor from the training data set, and update the training data set.</p></li>
+<li><p>Select and fit a model on the training data set i.e apply &ldquo;train()&rdquo; function where method is random forest algorithm (method = &ldquo;rf&rdquo;). To achieve the speed up the execution trControl parameter of the &ldquo;train&rdquo; function is used.</p></li>
+<li><p>Display the fitted model and find out the accuracy of the model.</p></li>
+<li><p>Predict the classe of each instance of the reshaped test data set by using &ldquo;prediction&rdquo; function of the caret package.</p></li>
+<li><p>predict and estimate out of sample error appropriately with cross-validation</p></li>
+<li><p>Answer and write up the predicted character vector to the &ldquo;.txt&rdquo; files</p></li>
+</ol>
+
+<p>Load the knitr library Packages</p>
+<p>Load library RandomForest, caret and pander </p>
+```{r}
+library(knitr)
+opts_chunk$set(cache=TRUE,echo=TRUE)
+options(width=120)
+library(randomForest)
+library(pander)
+library(caret)
+```
+<p>Setup the working directory path</p>
+```{r}
+setwd("C:/Users/pragati/Documents/GitHub/har_rproject")
+```
+<p>Reading training and testing data set and load, display the data dimension</p>
+```{r}
+training <- read.csv("pml-training.csv",na.strings=c("NA",""))
+testing <-read.csv("pml-testing.csv",na.strings=c("NA",""))
+dim(training)
+dim(testing)
+training[1:5,c('user_name','classe','num_window','roll_belt','pitch_belt')]
+sum(is.na(training))  # for first 1:5 set finding Total NA
+t1 <- table(colSums(is.na(training)))
+t2 <- table(colSums(is.na(testing)))
+pandoc.table(t1, style = "grid", justify = 'left', caption = 'Training data column NA frequencies')
+pandoc.table(t2, style = "grid", justify = 'left', caption = 'Testing data column NA frequencies')
+# training dataset feature set
+columnNACounts <- colSums(is.na(training))        
+badColumns <- columnNACounts >= 19000             
+cleanTrainingdata <- training[!badColumns]        
+sum(is.na(cleanTrainingdata))                     
+cleanTrainingdata <- cleanTrainingdata[, c(7:60)] 
+
+# testing dataset feature set
+columnNACounts <- colSums(is.na(testing))         
+badColumns <- columnNACounts >= 20                
+cleanTestingdata <- testing[!badColumns]        
+sum(is.na(cleanTestingdata))                     
+cleanTestingdata <- cleanTestingdata[, c(7:60)] 
+s <- summary(cleanTrainingdata$classe)
+pandoc.table(s, style = "grid", justify = 'left', caption = '`classe` frequencies')
+plot(cleanTrainingdata$classe,col=heat.colors(5),main = "`classe` total sample frequency plot")
+partition <- createDataPartition(y = cleanTrainingdata$classe, p = 0.6, list = FALSE)
+trainingdata <- cleanTrainingdata[partition, ]
+testdata <- cleanTrainingdata[-partition, ]
+
+model <- train(classe ~ ., data = trainingdata, method = "rf", prox = TRUE,trControl = trainControl(method = "cv", number = 4, allowParallel = TRUE))
+model
+training_pred <- predict(model, trainingdata)
+confusionMatrix(training_pred, trainingdata$classe)
+testing_pred <- predict(model, testdata)
+confusionMatrix(testing_pred, testdata$classe)
+answers <- predict(model, cleanTestingdata)
+answers <- as.character(answers)
+answers
+```
+
+<li><p>Answer and write up the predicted character vector to the &ldquo;.txt&rdquo; files</p></li>
+```{r}
+pml_write_files = function(x) {
+    n = length(x)
+  for (i in 1:n) {
+        filename = paste0("problem_id_", i, ".txt")
+        write.table(x[i], file = filename, quote = FALSE, row.names = FALSE, 
+            col.names = FALSE)
+    }
+}
+
+pml_write_files(answers)
+
+```
+
